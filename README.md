@@ -1,110 +1,117 @@
-# Terraform + Database Reliability Stack
+# 🏗️ Terraform + Database Reliability Stack
 
-This repository demonstrates:
+![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=for-the-badge&logo=terraform&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white)
+![Postgres](https://img.shields.io/badge/postgres-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white)
 
-- AWS infrastructure design with Terraform
-- A local PostgreSQL environment with Docker Compose
-- Database migrations, seed data, backup, and restore scripts
-- Environment-specific Terraform configuration for `dev` and `prod`
-- A GitHub Actions workflow for Terraform validation and plan review
+Welcome to the **Terraform + Database Reliability Stack**! This repository demonstrates a robust, production-ready infrastructure setup using Infrastructure as Code (IaC) alongside a fully functional local development database environment.
 
-## Repo Layout
+## ✨ Key Features
+
+- **☁️ AWS Infrastructure Design:** Complete architecture modeled with Terraform.
+- **🐳 Local Environment:** A local PostgreSQL database stack managed with Docker Compose.
+- **🛠️ Database Tooling:** Included scripts for migrations, seed data, backups, and restores.
+- **🌱 Multi-Environment Configuration:** Environment-specific Terraform setups for `dev` and `prod`.
+- **🤖 Automated CI/CD:** GitHub Actions workflows that automatically run Terraform validation and post `terraform plan` reviews directly as Pull Request comments.
+
+---
+
+## 📂 Repository Layout
+
+<details>
+<summary><b>Click to expand the folder structure</b></summary>
 
 ```text
-infra/
-  modules/
-    network/
-    ecs/
-    rds/
-  envs/
-    dev/
-    prod/
-db/
-  migrations/
-  seeds/
-scripts/
-.github/workflows/
+├── infra/
+│   ├── modules/
+│   │   ├── network/
+│   │   ├── ecs/
+│   │   └── rds/
+│   └── envs/
+│       ├── dev/
+│       └── prod/
+├── db/
+│   ├── migrations/
+│   └── seeds/
+├── scripts/
+└── .github/
+    └── workflows/
 ```
+</details>
 
-## What Is Modeled In Terraform
+---
 
-The AWS design follows:
+## 🏛️ What Is Modeled In Terraform
 
-`Internet -> ALB -> ECS/Fargate -> RDS`
+The AWS architecture follows this highly available design pattern:
 
-Included:
+> **`Internet -> ALB -> ECS/Fargate -> RDS`**
 
-- VPC with public and private subnets
-- Route tables and internet gateway
-- ALB security group
-- ECS/Fargate security group
-- RDS security group
-- ECS cluster, task definition, and service
-- Private RDS PostgreSQL instance
-- Environment-specific sizing and backup retention
+**Included AWS Resources:**
+* VPC with public and private subnets, route tables, and an internet gateway.
+* Security Groups for the ALB, ECS/Fargate, and RDS.
+* ECS cluster, task definition, and service.
+* Private RDS PostgreSQL instance.
+* Environment-specific sizing, deletion protection, and backup retention.
 
-The configuration is designed for `terraform fmt`, `terraform validate`, and `terraform plan`.
-No real deployment is required for this assessment.
+*Note: The configuration is designed for `terraform fmt`, `terraform validate`, and `terraform plan`. No real deployment is required to assess this code.*
 
-## Local Database Stack
+---
 
-The local stack uses PostgreSQL in Docker Compose and includes:
+## 💻 Local Database Stack Setup
 
-- `db/migrations/001_init.sql`
-- `db/seeds/001_seed.sql`
-- backup script
-- restore script
+The local stack uses PostgreSQL in Docker Compose. It comes pre-packaged with initialization scripts, migrations (`db/migrations/001_init.sql`), and seed data (`db/seeds/001_seed.sql`).
 
-## Prerequisites
+### Prerequisites
+Before getting started, ensure you have the following installed:
+* [Docker](https://www.docker.com/) & Docker Compose
+* [Terraform](https://www.terraform.io/) >= 1.15
+* AWS credentials (configured in GitHub Actions for CI workflows)
 
-- Docker
-- Docker Compose
-- Terraform >= 1.15
-- AWS credentials in GitHub Actions if you want the workflow to run `terraform plan`
+### Step-by-Step Initialization
 
-## Local Database Setup
-
-1. Start the database:
-
+**1. Start the database container:**
 ```bash
 docker compose up -d
 ```
 
-2. Run migrations:
-
+**2. Run the database migrations:**
 ```bash
 ./scripts/db-migrate.sh
 ```
 
-3. Load seed data:
-
+**3. Load the initial seed data:**
 ```bash
 ./scripts/db-seed.sh
 ```
 
-4. Connect to PostgreSQL:
-
+**4. Connect to the PostgreSQL instance:**
 ```bash
 docker exec -it tfdb-postgres psql -U appuser -d appdb
 ```
 
-## Backup And Restore
+---
 
-Create a backup:
+## 🔄 Backup And Restore
 
-```bash
-./scripts/db-backup.sh
-```
+Maintaining database reliability is critical. Use the provided utility scripts to manage your local data snapshots.
 
-Restore from the latest backup:
+* **Create a backup:**
+    ```bash
+    ./scripts/db-backup.sh
+    ```
+* **Restore from the latest backup:**
+    ```bash
+    ./scripts/db-restore.sh
+    ```
 
-```bash
-./scripts/db-restore.sh
-```
+---
 
-## Terraform Verification
+## ✅ Terraform Verification
 
-Validate the infrastructure configuration from each environment directory:
+You can manually validate the infrastructure configuration for each environment. Navigate to the desired environment directory and run the standard Terraform workflow:
 
 ```bash
 cd infra/envs/dev
@@ -113,37 +120,38 @@ terraform init
 terraform validate
 terraform plan -var-file=dev.tfvars
 ```
+*(Repeat the exact same steps for `infra/envs/prod` using the `prod.tfvars` file).*
 
-Repeat the same for `infra/envs/prod`.
+---
 
-## GitHub Actions Secrets
+## 🌍 Environment Differences
 
-To make the Pull Request workflow run successfully, create these repository secrets:
+The infrastructure dynamically scales and configures itself based on the target environment:
 
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `TF_VAR_DB_PASSWORD`
+| Feature | `dev` Environment | `prod` Environment |
+| :--- | :--- | :--- |
+| **Sizing** | Smaller ECS and RDS instances | Larger ECS and RDS instances |
+| **Backup Retention** | Shorter duration | Longer duration |
+| **Deletion Protection**| `false` | `true` |
 
-Why:
+---
 
-- `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` let the AWS provider initialize cleanly in CI.
-- `TF_VAR_DB_PASSWORD` supplies the database password without hardcoding it in the repository.
+## 🔐 GitHub Actions & CI/CD Workflow
 
-If you want to use GitHub OIDC instead of long-lived AWS keys, replace the credential step in the workflow with role assumption.
+This repository features a reviewer-friendly GitHub Actions workflow. When a Pull Request is opened, the bot automatically formats, validates, and runs a `terraform plan`, posting the results directly in the PR comments for easy review.
 
-## Environment Differences
+**Required Repository Secrets:**
+To make the Pull Request workflow run successfully, configure the following secrets in your GitHub repository settings:
 
-- `dev`
-  - smaller ECS and RDS sizing
-  - shorter RDS backup retention
-  - `deletion_protection = false`
+* `AWS_ACCESS_KEY_ID`: Allows the AWS provider to initialize cleanly in CI.
+* `AWS_SECRET_ACCESS_KEY`: Pairs with the Access Key ID.
+* `TF_VAR_DB_PASSWORD`: Supplies the database password dynamically without hardcoding it into the repository.
 
-- `prod`
-  - larger ECS and RDS sizing
-  - longer RDS backup retention
-  - `deletion_protection = true`
+*💡 Pro-Tip: If you prefer using GitHub OIDC instead of long-lived AWS keys, simply replace the credential step in the workflow with an AWS role assumption step.*
 
-## Notes
+---
 
-- The Terraform backend blocks are intentionally local by default so the repo remains runnable without AWS access.
-- The database workflow uses PostgreSQL, but the Terraform RDS module is easy to adapt to MySQL if needed.
+## 📝 General Notes
+
+* **Local Backend:** The Terraform backend blocks are intentionally kept local by default. This ensures the repository remains immediately runnable for anyone without requiring active AWS access.
+* **Database Agnostic Design:** While this workflow uses PostgreSQL, the Terraform RDS module is designed modularly and is easy to adapt to MySQL if needed.
