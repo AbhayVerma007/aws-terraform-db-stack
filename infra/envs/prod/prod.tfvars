@@ -1,0 +1,15 @@
+project_name               = "tfdb-prod"
+vpc_cidr                   = "10.20.0.0/16"
+public_subnet_cidrs        = ["10.20.0.0/24", "10.20.1.0/24"]
+private_subnet_cidrs       = ["10.20.10.0/24", "10.20.11.0/24"]
+availability_zones         = ["us-east-1a", "us-east-1b"]
+container_image            = "nginx:1.27-alpine"
+desired_count              = 2
+cpu                        = 512
+memory                     = 1024
+db_instance_class          = "db.t3.small"
+db_allocated_storage       = 50
+db_backup_retention_period = 14
+db_deletion_protection     = true
+db_name                    = "appdb"
+db_username                = "appuser"
