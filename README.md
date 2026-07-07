@@ -20,8 +20,8 @@ Welcome to the **Terraform + Database Reliability Stack**! This repository demon
 
 ## 📂 Repository Layout
 
-<details>
-<summary><b>Click to expand the folder structure</b></summary>
+<details open>
+<summary><b>Folder structure</b></summary>
 
 ```text
 ├── infra/
@@ -107,6 +107,8 @@ Maintaining database reliability is critical. Use the provided utility scripts t
     ./scripts/db-restore.sh
     ```
 
+<img width="1045" height="1040" alt="db-ss" src="https://github.com/user-attachments/assets/9f72e913-047a-4ee6-9630-cf536583369c" />
+
 ---
 
 ## ✅ Terraform Verification
@@ -146,6 +148,10 @@ To make the Pull Request workflow run successfully, configure the following secr
 * `AWS_ACCESS_KEY_ID`: Allows the AWS provider to initialize cleanly in CI.
 * `AWS_SECRET_ACCESS_KEY`: Pairs with the Access Key ID.
 * `TF_VAR_DB_PASSWORD`: Supplies the database password dynamically without hardcoding it into the repository.
+
+<img width="1830" height="1895" alt="reviewer-friendly" src="https://github.com/user-attachments/assets/54144675-31c5-46ba-baf8-eea9f6c2dab1" />
+
+
 
 *💡 Pro-Tip: If you prefer using GitHub OIDC instead of long-lived AWS keys, simply replace the credential step in the workflow with an AWS role assumption step.*
 
