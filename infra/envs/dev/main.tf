@@ -37,3 +37,5 @@ module "ecs" {
   cpu                = var.cpu
   memory             = var.memory
 }
+
+# trigger workflow test
