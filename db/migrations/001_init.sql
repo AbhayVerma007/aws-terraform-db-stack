@@ -1,18 +1,22 @@
-CREATE TABLE IF NOT EXISTS users (
-  id SERIAL PRIMARY KEY,
-  email TEXT NOT NULL UNIQUE,
-  full_name TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE hotel_bookings (
+  id UUID PRIMARY KEY,
+  org_id UUID NOT NULL,
+  hotel_id VARCHAR(100) NOT NULL,
+  city VARCHAR(100) NOT NULL,
+  checkin_date DATE NOT NULL,
+  checkout_date DATE NOT NULL,
+  amount NUMERIC(12,2) NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  created_at TIMESTAMP NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
-
-CREATE TABLE IF NOT EXISTS login_events (
+CREATE TABLE booking_events (
   id BIGSERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  event_type TEXT NOT NULL,
-  event_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  booking_id UUID NOT NULL,
+  event_type VARCHAR(100) NOT NULL,
+  payload JSONB,
+  created_at TIMESTAMP NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_login_events_user_id_event_at
-  ON login_events(user_id, event_at DESC);
+-- Required Index for Query Optimization
+CREATE INDEX idx_hotel_bookings_query ON hotel_bookings(city, created_at, org_id, status);
