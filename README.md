@@ -6,7 +6,7 @@
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
 ![GitHub Actions](https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white)
 
-Welcome to the **Terraform + Database Reliability Stack**! This repository demonstrates a robust, production-ready infrastructure setup using Infrastructure as Code (IaC) alongside a fully functional local development database environment.
+Welcome to the **Terraform + Database Reliability Stack**! This repository demonstrates a robust, production-ready infrastructure setup using Infrastructure as Code (IaC) alongside a fully functional local development database environment..
 
 ## ✨ Key Features
 
@@ -16,7 +16,18 @@ Welcome to the **Terraform + Database Reliability Stack**! This repository demon
 - **🌱 Multi-Environment Configuration:** Environment-specific Terraform setups for `dev` and `prod`.
 - **🤖 Automated CI/CD:** GitHub Actions workflows that automatically run Terraform validation and post `terraform plan` reviews directly as Pull Request comments.
 
----
+
+## ✅ Submission Snapshot
+
+| Area | Included |
+| --- | --- |
+| Terraform modules | `network`, `ecs`, `rds` |
+| Environments | `dev`, `prod` |
+| Local database | PostgreSQL 16 with Docker Compose |
+| Seeded bookings | `120` |
+| Seeded booking events | `61` from the shared verification run |
+| Query optimization | Composite index on `hotel_bookings` |
+| CI review flow | PR comment + plan artifact |
 
 ## 📂 Repository Layout
 
@@ -24,140 +35,306 @@ Welcome to the **Terraform + Database Reliability Stack**! This repository demon
 <summary><b>Folder structure</b></summary>
 
 ```text
-├── infra/
-│   ├── modules/
-│   │   ├── network/
-│   │   ├── ecs/
-│   │   └── rds/
-│   └── envs/
-│       ├── dev/
-│       └── prod/
+├── .github/workflows/terraform.yml
+├── docker-compose.yml
 ├── db/
-│   ├── migrations/
-│   └── seeds/
-├── scripts/
-└── .github/
-    └── workflows/
+│   ├── migrations/001_init.sql
+│   └── seeds/002_seed.sql
+├── infra/
+│   ├── envs/
+│   │   ├── dev/
+│   │   └── prod/
+│   └── modules/
+│       ├── ecs/
+│       ├── network/
+│       └── rds/
+└── scripts/
+    ├── db-backup.sh
+    ├── db-common.sh
+    ├── db-migrate.sh
+    ├── db-restore.sh
+    └── db-seed.sh
 ```
-</details>
 
----
+## 1. 🏛️ What Is Modeled In Terraform
 
-## 🏛️ What Is Modeled In Terraform
+The Terraform code models the required AWS architecture:
 
-The AWS architecture follows this highly available design pattern:
+`Internet -> ALB -> ECS/Fargate -> RDS`
 
-> **`Internet -> ALB -> ECS/Fargate -> RDS`**
+It includes:
 
-**Included AWS Resources:**
-* VPC with public and private subnets, route tables, and an internet gateway.
-* Security Groups for the ALB, ECS/Fargate, and RDS.
-* ECS cluster, task definition, and service.
-* Private RDS PostgreSQL instance.
-* Environment-specific sizing, deletion protection, and backup retention.
+- VPC with public and private subnets
+- Security groups for ALB, ECS/Fargate, and RDS
+- ECS cluster, task definition, and service
+- Private RDS PostgreSQL instance
+- RDS access limited to the ECS security group
+- Placeholder application image using `nginx:1.27-alpine`
 
-*Note: The configuration is designed for `terraform fmt`, `terraform validate`, and `terraform plan`. No real deployment is required to assess this code.*
+The code is intended to be realistic and production-oriented, while remaining reviewable without performing a real AWS deployment.
 
----
+## 2. Environment Handling
 
-## 💻 Local Database Stack Setup
+Terraform is split into reusable modules and two environment examples:
 
-The local stack uses PostgreSQL in Docker Compose. It comes pre-packaged with initialization scripts, migrations (`db/migrations/001_init.sql`), and seed data (`db/seeds/001_seed.sql`).
+- `infra/modules/network`
+- `infra/modules/ecs`
+- `infra/modules/rds`
+- `infra/envs/dev`
+- `infra/envs/prod`
 
-### Prerequisites
-Before getting started, ensure you have the following installed:
-* [Docker](https://www.docker.com/) & Docker Compose
-* [Terraform](https://www.terraform.io/) >= 1.15
-* AWS credentials (configured in GitHub Actions for CI workflows)
+Each environment has its own:
 
-### Step-by-Step Initialization
+- `variables.tf`
+- `backend.tf`
+- environment-specific `tfvars`
+- sizing configuration
+- backup retention settings
+- deletion protection settings
 
-**1. Start the database container:**
+Environment differences:
+
+| Setting | `dev` | `prod` |
+| --- | --- | --- |
+| Project name | `tfdb-dev` | `tfdb-prod` |
+| Container image | `nginx:1.27-alpine` | `nginx:1.27-alpine` |
+| ECS desired count | `1` | `2` |
+| ECS CPU | `256` | `512` |
+| ECS memory | `512` | `1024` |
+| DB instance class | `db.t3.micro` | `db.t3.small` |
+| DB storage | `20` GB | `50` GB |
+| Backup retention | `3` days | `14` days |
+| Deletion protection | `false` | `true` |
+
+```
+
+## 3. GitHub Actions Terraform Plan
+
+The repository includes a workflow at `.github/workflows/terraform.yml`.
+
+On pull requests affecting Terraform files, the workflow runs for both `dev` and `prod` and performs:
+
+- `terraform fmt -check -recursive infra`
+- `terraform init`
+- `terraform validate`
+- `terraform plan -refresh=false -var-file=<env>.tfvars`
+
+The plan is exposed in two reviewer-friendly ways:
+
+- PR comment with the rendered plan output
+- uploaded workflow artifact containing the saved plan
+
+Required repository secrets:
+
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `TF_VAR_DB_PASSWORD`
+
+## 4. 💻 Local Database Setup
+
+Start the database:
+
 ```bash
 docker compose up -d
 ```
 
-**2. Run the database migrations:**
+Apply migrations:
+
 ```bash
 ./scripts/db-migrate.sh
 ```
 
-**3. Load the initial seed data:**
+Load seed data:
+
 ```bash
 ./scripts/db-seed.sh
 ```
 
-**4. Connect to the PostgreSQL instance:**
+Connect to PostgreSQL manually:
+
 ```bash
 docker exec -it tfdb-postgres psql -U appuser -d appdb
 ```
 
----
+## 5. Database Schema
 
-## 🔄 Backup And Restore
+The migration file creates the two required tables.
 
-Maintaining database reliability is critical. Use the provided utility scripts to manage your local data snapshots.
+### `hotel_bookings`
 
-* **Create a backup:**
-    ```bash
-    ./scripts/db-backup.sh
-    ```
-* **Restore from the latest backup:**
-    ```bash
-    ./scripts/db-restore.sh
-    ```
+```sql
+hotel_bookings (
+  id UUID PRIMARY KEY,
+  org_id UUID NOT NULL,
+  hotel_id VARCHAR(100) NOT NULL,
+  city VARCHAR(100) NOT NULL,
+  checkin_date DATE NOT NULL,
+  checkout_date DATE NOT NULL,
+  amount NUMERIC(12,2) NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  created_at TIMESTAMP NOT NULL
+)
+```
 
-<img width="1045" height="1040" alt="db-ss" src="https://github.com/user-attachments/assets/9f72e913-047a-4ee6-9630-cf536583369c" />
+### `booking_events`
 
----
+```sql
+booking_events (
+  id BIGSERIAL PRIMARY KEY,
+  booking_id UUID NOT NULL,
+  event_type VARCHAR(100) NOT NULL,
+  payload JSONB,
+  created_at TIMESTAMP NOT NULL
+)
+```
 
-## ✅ Terraform Verification
+## 6. 🚀 Seed Data and Query Optimization
 
-You can manually validate the infrastructure configuration for each environment. Navigate to the desired environment directory and run the standard Terraform workflow:
+The seed file inserts:
+
+- `120` hotel bookings
+- multiple cities: `delhi`, `mumbai`, `bangalore`, `pune`
+- multiple organizations
+- multiple statuses: `CONFIRMED`, `CANCELLED`, `PENDING`
+- booking events for roughly half of the bookings
+
+From the local verification run:
+
+- `hotel_bookings`: `120`
+- `booking_events`: `61`
+
+Observed city distribution:
+
+- `bangalore`: `27`
+- `delhi`: `34`
+- `mumbai`: `34`
+- `pune`: `25`
+
+Required query:
+
+```sql
+SELECT org_id, status, COUNT(*), SUM(amount)
+FROM hotel_bookings
+WHERE city = 'delhi'
+  AND created_at >= NOW() - INTERVAL '30 days'
+GROUP BY org_id, status;
+```
+
+Index added for the query:
+
+```sql
+CREATE INDEX idx_hotel_bookings_query
+ON hotel_bookings(city, created_at, org_id, status);
+```
+
+Index rationale:
+
+- `city` matches the leading equality filter
+- `created_at` supports the time-range filter
+- `org_id` and `status` align with the grouping pattern after filtering
+
+## 7. 🔄 Backup and Restore
+
+Create a compressed timestamped backup:
+
+```bash
+./scripts/db-backup.sh
+```
+
+This writes files in the format:
+
+```text
+backup/appdb-YYYYMMDD-HHMMSS.sql.gz
+```
+
+Restore the latest available backup:
+
+```bash
+./scripts/db-restore.sh
+```
+
+Restore a specific backup file:
+
+```bash
+./scripts/db-restore.sh backup/appdb-20260708-031559.sql.gz
+```
+
+## 8. ✅ Verification Steps
+
+### Terraform
+
+Validate `dev`:
 
 ```bash
 cd infra/envs/dev
 terraform fmt -check -recursive
 terraform init
 terraform validate
-terraform plan -var-file=dev.tfvars
+terraform plan -refresh=false -var-file=dev.tfvars
 ```
-*(Repeat the exact same steps for `infra/envs/prod` using the `prod.tfvars` file).*
+
+Validate `prod`:
+
+```bash
+cd infra/envs/prod
+terraform fmt -check -recursive
+terraform init
+terraform validate
+terraform plan -refresh=false -var-file=prod.tfvars
+```
+<img width="1830" height="1895" alt="reviewer-friendly" src="https://github.com/user-attachments/assets/c6334b28-a485-4727-8b49-3c1877a92a71" />
 
 ---
+### Database
 
-## 🌍 Environment Differences
+Start and initialize:
 
-The infrastructure dynamically scales and configures itself based on the target environment:
+```bash
+docker compose up -d
+./scripts/db-migrate.sh
+./scripts/db-seed.sh
+```
 
-| Feature | `dev` Environment | `prod` Environment |
-| :--- | :--- | :--- |
-| **Sizing** | Smaller ECS and RDS instances | Larger ECS and RDS instances |
-| **Backup Retention** | Shorter duration | Longer duration |
-| **Deletion Protection**| `false` | `true` |
+Verify row counts:
+
+```bash
+docker exec -it tfdb-postgres psql -U appuser -d appdb -c "SELECT COUNT(*) FROM hotel_bookings;"
+docker exec -it tfdb-postgres psql -U appuser -d appdb -c "SELECT COUNT(*) FROM booking_events;"
+```
+
+Verify city distribution:
+
+```bash
+docker exec -it tfdb-postgres psql -U appuser -d appdb -c "SELECT city, COUNT(*) FROM hotel_bookings GROUP BY city ORDER BY city;"
+```
+
+Verify the required aggregation query:
+
+```bash
+docker exec -it tfdb-postgres psql -U appuser -d appdb -c "SELECT org_id, status, COUNT(*), SUM(amount) FROM hotel_bookings WHERE city = 'delhi' AND created_at >= NOW() - INTERVAL '30 days' GROUP BY org_id, status;"
+```
+
+### 🔄 Backup and Restore
+
+Create and restore a backup:
+
+```bash
+./scripts/db-backup.sh
+./scripts/db-restore.sh
+```
+
+To confirm that restore succeeded, rerun the count checks after restore and verify that the data remains present and consistent:
+
+```bash
+docker exec -it tfdb-postgres psql -U appuser -d appdb -c "SELECT COUNT(*) FROM hotel_bookings;"
+docker exec -it tfdb-postgres psql -U appuser -d appdb -c "SELECT COUNT(*) FROM booking_events;"
+```
+
+Expected values from the shared verification run:
+
+- `hotel_bookings = 120`
+- `booking_events = 61`
+
+<img width="1045" height="1040" alt="Screenshot From 2026-07-08 03-31-31" src="https://github.com/user-attachments/assets/9c5791aa-a7d9-4339-924a-34b1a2c10076" />
 
 ---
-
-## 🔐 GitHub Actions & CI/CD Workflow
-
-This repository features a reviewer-friendly GitHub Actions workflow. When a Pull Request is opened, the bot automatically formats, validates, and runs a `terraform plan`, posting the results directly in the PR comments for easy review.
-
-**Required Repository Secrets:**
-To make the Pull Request workflow run successfully, configure the following secrets in your GitHub repository settings:
-
-* `AWS_ACCESS_KEY_ID`: Allows the AWS provider to initialize cleanly in CI.
-* `AWS_SECRET_ACCESS_KEY`: Pairs with the Access Key ID.
-* `TF_VAR_DB_PASSWORD`: Supplies the database password dynamically without hardcoding it into the repository.
-
-<img width="1830" height="1895" alt="reviewer-friendly" src="https://github.com/user-attachments/assets/54144675-31c5-46ba-baf8-eea9f6c2dab1" />
-
-
-
-*💡 Pro-Tip: If you prefer using GitHub OIDC instead of long-lived AWS keys, simply replace the credential step in the workflow with an AWS role assumption step.*
-
----
-
-## 📝 General Notes
-
-* **Local Backend:** The Terraform backend blocks are intentionally kept local by default. This ensures the repository remains immediately runnable for anyone without requiring active AWS access.
-* **Database Agnostic Design:** While this workflow uses PostgreSQL, the Terraform RDS module is designed modularly and is easy to adapt to MySQL if needed.
